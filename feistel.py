@@ -1,28 +1,33 @@
+from typing import List
 import base58
 import hmac
+import hashlib
 
+def sha256(msg: bytes) -> bytes:
+    return hashlib.sha256(msg).digest()
 
-def kdf(key, msg):
-    return hmac.digest(key, b"F" + msg, "sha256")
+def kdf(key: bytes, msg: bytes) -> bytes:
+    return hmac.digest(key, b"F" + msg, hashlib.sha256)
 
-def rf(key, msg):
-    digest = kdf(key, msg.to_bytes(6, "big"))
-    result = int.from_bytes(digest[:6], "big") & 0x1ffffffffff
+def rf(key: bytes, msg: int) -> int:
+    digest = kdf(key, msg.to_bytes(8, "little"))
+    result = int.from_bytes(digest[:6], "little") & 0x1ffffffffff
     return result
 
 class Cipher:
-    rounds = 18
-    round_keys = []
+    rounds: int = 18
+    round_keys: List[bytes] = []
 
     def __init__(self, key):
+        key = sha256(key)
         for i in range(self.rounds):
             # hashing only i should be sufficient, but could make related-key attacks easier
             # so make sure more bits are flipped in the message
             # is this necessary?
             val = 332937403377012377 + i * 6565350101298335 % 461168601842738001
-            self.round_keys.append(kdf(key, val.to_bytes(8, "big")))
+            self.round_keys.append(kdf(key, val.to_bytes(8, "little")))
 
-    def encrypt(self, val: int, tweak=b""):
+    def encrypt(self, val: int, tweak=b"") -> str:
         # 4321098765432109876543210987654321098765432109876543210987654321
         # leftleftleftleftleftleftleftleftrightrightrightrightrightrightri
         # 10987654321098765432109876543210987654321
@@ -43,7 +48,7 @@ class Cipher:
         return base58.encode(left) + base58.encode(right)
 
 
-    def decrypt(self, val: str, tweak=b""):
+    def decrypt(self, val: str, tweak=b"") -> int:
         left = base58.decode(val[:7])
         right = base58.decode(val[7:])
 
@@ -77,5 +82,5 @@ if __name__ == "__main__":
         c = Cipher(b"helloworld")
         c.decrypt(c.encrypt(123, tweak), tweak)
 
-    print(timeit.Timer(bench).timeit(number=10000))
+    print(timeit.Timer(bench).timeit(number=1000), "ms")
     print("")

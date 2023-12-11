@@ -1,8 +1,18 @@
-41 bits -> 7 base58 chars
+# Length
+
+We would like to support 64-bits integers, as these are widely used in databases and programming languages. [Paragon](https://paragonie.com/blog/2015/09/comprehensive-guide-url-parameter-encryption-in-php) suggests tokens of 72 bits. Larger is more secure, but less usable for URLs.
+
+If we use base58 encoding, we need at least 13 chars for 72 bits. With base58 encoding, 41 bits fits almost in 7 characters, which would make 14 characters more optimal.
+
+# Number of rounds
 
 Dunkelman 2020:
 
 > This means that for FF1 and FF3-1 the number of rounds should be at least 18
+
+It would make sense to desire 64-bit security. With 82 bits, this would be ~4/5n bits, which would require 6 x 4 = 24 rounds (or 22 if exact).
+
+# Tweak combination
 
 DV 2017:
 
@@ -15,13 +25,28 @@ CBC mode, as proposed by the authors of the construction. We obtain a
 scheme with a shorter tweak, to which we concatenate the round index instead
 of XORing it.
 
-Implicit zero check
-
-32 bits encrypt encrypt into 41 bits. 41 bits decrypt into 32 bits, so 9 bits are thrown away. These bits should be checked, but not explicitly as this will give an oracle.
+# HMAC related key attack
 
 Peyrin 2012:
 
 > Our proposed solution is instead to force an extra fixed bit (or byte) before the input message M.
+
+# Implicit zero check 
+
+32 bits encrypt encrypt into 41 bits. 41 bits decrypt into 32 bits, so 9 bits are thrown away. These bits should be checked, but not explicitly as this will give an oracle.
+
+# Endianness
+
+Should we use little endian so we don't need any conversion?
+
+# Performance
+
+Goals:
+
+- construction, encryption and decryption in less than 1ms
+- changing tweak is cheaper than changing key
+
+# References
 
 1. [Bellare, M., Rogaway, P., & Spies, T. (2010). The FFX mode of operation for format-preserving encryption. NIST submission, 20(19), 1-18](https://csrc.nist.gov/CSRC/media/Projects/Block-Cipher-Techniques/documents/BCM/proposed-modes/ffx/ffx-spec.pdf)
 1. [Durak, F. B., & Vaudenay, S. (2017, July). Breaking the FF3 format-preserving encryption standard over small domains. In Annual international cryptology conference (pp. 679-707). Cham: Springer International Publishing](https://infoscience.epfl.ch/record/231304/files/fpe_bps.pdf)
