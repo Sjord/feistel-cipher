@@ -1,3 +1,9 @@
+# Encoding
+
+base58 is URL-safe and compact.
+
+Using any encoding using letters makes it possible to end up with dirty words in the token. An alternative would be to use numbers, or numbers and letters alternating.
+
 # Length
 
 We would like to support 64-bits integers, as these are widely used in databases and programming languages. [Paragon](https://paragonie.com/blog/2015/09/comprehensive-guide-url-parameter-encryption-in-php) suggests tokens of 72 bits. Larger is more secure, but less usable for URLs.
@@ -34,6 +40,14 @@ Peyrin 2012:
 # Implicit zero check 
 
 32 bits encrypt encrypt into 41 bits. 41 bits decrypt into 32 bits, so 9 bits are thrown away. These bits should be checked, but not explicitly as this will give an oracle.
+
+This doesn't seem possible. If we map 82 bits into 64 bits, some collisions are going to occur. We could:
+
+* distribute collisions evenly over 64 bits
+* err towards higher numbers, assuming that valid numbers are low
+* throw an exception, but this will likely provide an oracle giving information on 18 bits after at most 2^18 queries
+* return null or 0 or -1
+* return negative numbers (what about zero?)
 
 # Endianness
 

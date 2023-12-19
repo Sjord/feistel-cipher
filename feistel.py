@@ -28,6 +28,9 @@ class Cipher:
             self.round_keys.append(kdf(key, val.to_bytes(8, "little")))
 
     def encrypt(self, val: int, tweak=b"") -> str:
+        if val < 0:
+            raise ValueError(val)
+
         # 4321098765432109876543210987654321098765432109876543210987654321
         # leftleftleftleftleftleftleftleftrightrightrightrightrightrightri
         # 10987654321098765432109876543210987654321
@@ -61,15 +64,27 @@ class Cipher:
         for i in reversed(range(2)):
             left, right = right ^ rf(kdf(self.round_keys[i], tweak), left), left
 
-        return (left << 23) ^ right
+        result = (left << 23) | right
+
+        # these bits should all be zero
+        zero = left & 0x1ff | right & 0x1ff00000000
+
+        # result *= 1 if zero == 0 else -1
+        result *= int(not zero) * 2 - 1 
+
+        return result
     
 
 if __name__ == "__main__":
     import timeit
 
-    c = Cipher(b"helloworld")
-    print(c.encrypt(123, b"twea"));
-    print(c.decrypt("11111111111138"))
+    key = b"helloworld"
+    tweak = b"tweak"
+
+    c = Cipher(key)
+    print(c.encrypt(123, tweak));
+    print(c.decrypt("fQgf7J8qHgBcd4", tweak))
+    print(c.decrypt("89dyeYRed4bfH6", tweak))
 
     print(c.encrypt(0xFFFFFFFFFFFFFFFF));
     print(c.decrypt("zmM9yuR17YXq9G"));
