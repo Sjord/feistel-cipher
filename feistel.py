@@ -3,29 +3,30 @@ import base58
 import hmac
 import hashlib
 
+
 def sha256(msg: bytes) -> bytes:
     return hashlib.sha256(msg).digest()
 
+
 def kdf(key: bytes, msg: bytes) -> bytes:
-    return hmac.digest(key, b"F" + msg, hashlib.sha256)
+    return hmac.digest(key, msg, hashlib.sha256)
+
 
 def rf(key: bytes, msg: int) -> int:
     digest = kdf(key, msg.to_bytes(8, "little"))
-    result = int.from_bytes(digest[:6], "little") & 0x1ffffffffff
+    result = int.from_bytes(digest[:6], "little") & 0x1FFFFFFFFFF
     return result
 
+
 class Cipher:
-    rounds: int = 18
+    rounds: int = 22
     round_keys: List[bytes] = []
 
     def __init__(self, key):
+        assert len(key) >= 32
         key = sha256(key)
         for i in range(self.rounds):
-            # hashing only i should be sufficient, but could make related-key attacks easier
-            # so make sure more bits are flipped in the message
-            # is this necessary?
-            val = 332937403377012377 + i * 6565350101298335 % 461168601842738001
-            self.round_keys.append(kdf(key, val.to_bytes(8, "little")))
+            self.round_keys.append(kdf(key, 8 * i.to_bytes(8, "little")))
 
     def encrypt(self, val: int, tweak=b"") -> str:
         # 4321098765432109876543210987654321098765432109876543210987654321
@@ -33,6 +34,7 @@ class Cipher:
         # 10987654321098765432109876543210987654321
         # leftleftleftleftleftleftleftleft000000000
         # 000000000rightrightrightrightrightrightri
+
         left = (val & 0xFFFFFFFF00000000) >> 23
         right = val & 0x00000000FFFFFFFF
 
@@ -41,12 +43,11 @@ class Cipher:
 
         for i in range(2, self.rounds - 2):
             left, right = right, left ^ rf(self.round_keys[i], right)
-        
+
         for i in range(self.rounds - 2, self.rounds):
             left, right = right, left ^ rf(kdf(self.round_keys[i], tweak), right)
 
         return base58.encode(left) + base58.encode(right)
-
 
     def decrypt(self, val: str, tweak=b"") -> int:
         left = base58.decode(val[:7])
@@ -61,23 +62,39 @@ class Cipher:
         for i in reversed(range(2)):
             left, right = right ^ rf(kdf(self.round_keys[i], tweak), left), left
 
+        left_zeroes = left & ~0x1FFFFFFFE00
+        right_zeroes = right & ~0xFFFFFFFF
+        if left_zeroes or right_zeroes:
+            raise ValueError("invalid ciphertext")
+
         return (left << 23) ^ right
-    
+
 
 if __name__ == "__main__":
     import timeit
 
-    c = Cipher(b"helloworld")
-    print(c.encrypt(123, b"twea"));
-    print(c.decrypt("11111111111138"))
+    key = b"helloworld"
+    tweak = b"tweak"
 
-    print(c.encrypt(0xFFFFFFFFFFFFFFFF));
-    print(c.decrypt("zmM9yuR17YXq9G"));
+    c = Cipher(key)
+    print(c.encrypt(123, tweak))
+    # print(c.decrypt("fQgf7J8qHgBcd4", tweak))
+    try:
+        print(c.decrypt("89dyeYRed4bfH6", tweak))
+    except ValueError:
+        pass
+
+    print(c.encrypt(0xFFFFFFFFFFFFFFFF))
+    try:
+        print(c.decrypt("zmM9yuR17YXq9G"))
+    except ValueError:
+        pass
 
     for i in range(0, 0xFFFFFFFFFFFFFFFF, 0x50505050505050):
         assert i == c.decrypt(c.encrypt(i))
 
     tweak = b"tweak"
+
     def bench():
         c = Cipher(b"helloworld")
         c.decrypt(c.encrypt(123, tweak), tweak)
