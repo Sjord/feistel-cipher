@@ -19,7 +19,8 @@ final class Base58 {
         $result = "";
         $num = $input;
         for ($i = 0; $i < 7; $i++) {
-            list($num, $rem) = static::divmod($num, 58);
+            $rem = $num % 58;
+            $num = intdiv($num, 58);
             $result = static::$alphabet[$rem] . $result;
         }
         assert($num == 0);
@@ -42,12 +43,5 @@ final class Base58 {
             $result += $index;
         }
         return $result;
-    }
-
-    // Helper function to mimic divmod in PHP
-    private static function divmod($a, $b) {
-        $quotient = intval($a / $b);
-        $remainder = $a % $b;
-        return array($quotient, $remainder);
     }
 }
