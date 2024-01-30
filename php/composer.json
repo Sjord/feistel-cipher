@@ -1,0 +1,19 @@
+{
+    "name": "sjord/fecid",
+    "description": "Encrypt identifiers",
+    "type": "library",
+    "license": "EUPL",
+    "autoload": {
+        "psr-4": {
+            "Sjord\\Fecid\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Sjoerd Langkemper"
+        }
+    ],
+    "require-dev": {
+        "phpunit/phpunit": "^10"
+    }
+}

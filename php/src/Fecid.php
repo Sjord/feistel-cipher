@@ -1,5 +1,9 @@
 <?php
 
+namespace Sjord\Fecid;
+
+use \Exception;
+
 function sha256($msg) {
     return hash('sha256', $msg, true);
 }
@@ -14,7 +18,7 @@ function rf($key, $msg) {
     return $result;
 }
 
-class Cipher {
+class Fecid {
     public $rounds = 22;
     public $round_keys = [];
 
@@ -27,7 +31,7 @@ class Cipher {
     }
 
     public function encrypt($val, $tweak = "") {
-        $left = ($val >> 23) & 0xFFFFFFFF;
+        $left = ($val >> 23) & 0x1FFFFFFFE00;
         $right = $val & 0xFFFFFFFF;
 
         for ($i = 0; $i < 2; $i++) {
@@ -42,12 +46,12 @@ class Cipher {
             list($left, $right) = [$right, $left ^ rf(kdf($this->round_keys[$i], $tweak), $right)];
         }
 
-        return base58_encode($left) . base58_encode($right);
+        return Base58::encode($left) . Base58::encode($right);
     }
 
     public function decrypt($val, $tweak = "") {
-        $left = base58_decode(substr($val, 0, 7));
-        $right = base58_decode(substr($val, 7));
+        $left = Base58::decode(substr($val, 0, 7));
+        $right = Base58::decode(substr($val, 7));
 
         for ($i = $this->rounds - 1; $i >= $this->rounds - 2; $i--) {
             list($left, $right) = [$right ^ rf(kdf($this->round_keys[$i], $tweak), $left), $left];
@@ -70,51 +74,3 @@ class Cipher {
         return ($left << 23) ^ $right;
     }
 }
-
-// Base58 encoder and decoder functions
-function base58_encode($int) {
-    $alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    $base_count = strlen($alphabet);
-    $encoded = '';
-    while ($int >= $base_count) {
-        $div = $int / $base_count;
-        $mod = ($int - ($base_count * intval($div)));
-        $encoded = $alphabet[$mod] . $encoded;
-        $int = intval($div);
-    }
-    if ($int) $encoded = $alphabet[$int] . $encoded;
-    return $encoded;
-}
-
-function base58_decode($base58) {
-    $alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    $base_count = strlen($alphabet);
-    $decoded = 0;
-    $multi = 1;
-    while (strlen($base58) > 0) {
-        $digit = $base58[strlen($base58) - 1];
-        $decoded += $multi * strpos($alphabet, $digit);
-        $multi = $multi * $base_count;
-        $base58 = substr($base58, 0, -1);
-    }
-    return $decoded;
-}
-
-// Testing
-$key = "helloworld helloworld helloworld";
-$tweak = "tweak";
-$cipher = new Cipher($key);
-var_dump($cipher->round_keys);
-$value = 123456;
-$encrypted = $cipher->encrypt($value, $tweak);
-echo "Encrypted: " . $encrypted . "\n";
-$decrypted = $cipher->decrypt($encrypted, $tweak);
-echo "Decrypted: " . $decrypted . "\n";
-
-$start = microtime(true);
-for ($i = 0; $i < 1000; $i++) {
-    $c = new Cipher($key);
-    $c->decrypt($c->encrypt(123, $tweak), $tweak);
-}
-$stop = microtime(true);
-echo(($stop - $start) . 'ms');
