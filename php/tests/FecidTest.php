@@ -3,7 +3,7 @@ use PHPUnit\Framework\TestCase;
 use Sjord\Fecid\Fecid;
 
 final class FecidTest extends TestCase {
-    public function testFecid() {
+    public function testEncryptDecrypt() {
         $key = str_repeat('a', 32);
         $tweak = 'tweak';
 
@@ -14,5 +14,11 @@ final class FecidTest extends TestCase {
             $plaintext = $fecid->decrypt($ciphertext, $tweak);
             $this->assertEquals($i, $plaintext);
         }
+    }
+
+    public function testDifferentTweak() {
+        $key = str_repeat('a', 32);
+        $fecid = new Fecid($key);
+        $this->assertNotEquals($fecid->encrypt(123, 'a'), $fecid->encrypt(123, 'b'));
     }
 }
